@@ -40,12 +40,44 @@ This is what makes the numbers arguable. A runner who disagrees with their
 fitness figure can trace it back to individual runs instead of being handed a
 number.
 
+## Getting your data in
+
+Strava moved API access behind a paid subscription. An account without one has
+its API application marked `Inactive`, and then every data endpoint returns 403 —
+while OAuth continues to succeed, so the connection looks healthy right up until
+the first request for data. Runman therefore supports two ingestion paths:
+
+**Bulk export (no subscription needed).** Strava still lets every athlete
+download their complete history for free, via Settings → My Account → Download
+or Delete Your Account. Upload the `activities.csv` from the resulting zip on the
+Profile page. The file is parsed in your browser by the same `@runman/core`
+parser the server would use, so only the fields Runman computes with are
+uploaded — descriptions, gear and private notes stay on your machine. Ids come
+from the Strava activity id, so re-importing an updated export updates rows
+rather than duplicating your history.
+
+That CSV is messier than an API payload in three ways, each with a regression
+test: `Distance`, `Elapsed Time` and `Max Heart Rate` each appear **twice**, and
+the two `Distance` columns are in different units with neither labelled (taking
+the first reports every run as ten metres); dates are locale-formatted and UTC,
+so parsing them as local time shifts every calendar-week bucket; and activity
+names routinely contain commas, quotes and newlines. Rows that cannot yield a
+trustworthy activity are skipped and counted by reason rather than defaulted — an
+unreadable duration would otherwise enter the load series as a zero and quietly
+drag your fitness down.
+
+**API sync (needs a Strava subscription).** Server-side OAuth with incremental
+sync, using the last stored activity as a cursor. Fully built and working; it
+simply requires an active Strava API application. When it is inactive the app
+says so in plain language and stops offering a retry button that cannot succeed.
+
 ## Architecture
 
 ```
 packages/core/     @runman/core — the training science. No I/O, no framework.
                    64 fixture tests. Imported by the web app and by RunCoach.
 apps/web/          React + Vite. Fetches stored activities, computes with core.
+                   Parses Strava bulk exports client-side with that same core.
 api/               Vercel serverless functions. Hold all credentials.
 supabase/          Postgres schema and migrations. RLS on, no public policies.
 ```
