@@ -3,8 +3,8 @@
  * in with nothing synced yet. Returns null when the page should render normally.
  */
 
-import { Alert, Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
-import { Navigate } from 'react-router-dom';
+import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, Typography } from '@mui/material';
+import { Link, Navigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAthleteData } from '../hooks/useAthleteData';
 
@@ -75,6 +75,16 @@ export default function LoadingOrEmpty({ status, activityCount }) {
         >
           {syncing ? 'Syncing from Strava…' : 'Sync my Strava history'}
         </Button>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+          {error?.code === 'application_inactive'
+            ? 'Since the API is unavailable, import your history instead — '
+            : 'No Strava API access? Import a bulk export instead — '}
+          <MuiLink component={Link} to="/profile">
+            Profile → Import from a Strava export
+          </MuiLink>
+          . Strava lets every athlete download their full history for free.
+        </Typography>
       </Paper>
     );
   }

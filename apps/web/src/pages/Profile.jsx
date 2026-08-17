@@ -32,6 +32,7 @@ import { api } from '../api/client';
 import { useAthleteData } from '../hooks/useAthleteData';
 import { useSettings } from '../context/SettingsContext';
 import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import ImportExport from '../components/ImportExport';
 import { Explanation } from '../components/Provenance';
 
 export default function Profile() {
@@ -204,6 +205,10 @@ export default function Profile() {
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <ImportExport />
         </Grid>
 
         <Grid item xs={12}>

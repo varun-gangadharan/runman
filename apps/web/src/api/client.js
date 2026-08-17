@@ -59,6 +59,14 @@ export const api = {
   /** @param {boolean} full Walk the whole history rather than syncing incrementally. */
   sync: (full = false) => request(`/api/sync${full ? '?full=1' : ''}`, { method: 'POST' }),
 
+  /**
+   * Upload one batch of already-parsed activities from a Strava bulk export.
+   * @param {object[]} activities
+   * @param {boolean} final Marks the last batch, which settles the sync state.
+   */
+  importActivities: (activities, final) =>
+    request('/api/import', { method: 'POST', body: JSON.stringify({ activities, final }) }),
+
   updateProfile: (patch) => request('/api/athlete', { method: 'PATCH', body: JSON.stringify(patch) }),
 
   keys: {

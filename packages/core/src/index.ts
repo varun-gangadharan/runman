@@ -19,3 +19,4 @@ export * from './racePrediction.ts';
 export * from './trainingPlan.ts';
 export * from './status.ts';
 export * from './strava.ts';
+export * from './stravaExport.ts';
