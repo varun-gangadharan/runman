@@ -2,6 +2,7 @@
   "name": "runman",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Strava training analytics and plan generation, with a fixture-tested shared science core.",
   "license": "MIT",
   "workspaces": [
