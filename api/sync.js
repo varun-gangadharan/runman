@@ -65,11 +65,20 @@ export default async function handler(req, res) {
       lastActivityDate: newest,
     });
   } catch (error) {
-    if (error.code === 'rate_limited') {
-      return res.status(429).json({ error: 'rate_limited', message: error.message });
-    }
-    if (error.code === 'not_connected') {
-      return res.status(409).json({ error: 'not_connected', message: error.message });
+    // Conditions the athlete (or the operator) can actually do something about
+    // get their own status and their own message. Everything else is a 500.
+    const known = {
+      rate_limited: 429,
+      not_connected: 409,
+      reauthorize_required: 401,
+      insufficient_scope: 403,
+      // 503: nothing is wrong with this request, and retrying will not help
+      // until the Strava application is reactivated.
+      application_inactive: 503,
+    };
+    const status = known[error.code];
+    if (status) {
+      return res.status(status).json({ error: error.code, message: error.message });
     }
     console.error('Sync failed:', error);
     res.status(500).json({ error: 'server_error', message: error.message });

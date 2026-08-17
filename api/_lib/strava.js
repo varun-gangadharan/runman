@@ -97,9 +97,70 @@ async function authorizedGet(athleteId, path, params = {}) {
   }
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Strava request to ${path} failed (${response.status}): ${body}`);
+    throw interpretStravaError(response.status, body, path);
   }
   return response.json();
+}
+
+/**
+ * Turn a Strava error body into something a person can act on.
+ *
+ * Strava reports several unrelated conditions as a bare 403, and the raw payload
+ * is close to useless to whoever hits it — `{"resource":"Application","field":
+ * "Status","code":"Inactive"}` in particular tells a runner nothing about the
+ * fact that the *developer* has to go and reactivate the API application, and
+ * that no amount of retrying or re-authorising on their part will help.
+ *
+ * @param {number} status
+ * @param {string} body
+ * @param {string} path
+ */
+export function interpretStravaError(status, body, path) {
+  /** @type {{ errors?: Array<{ resource?: string, field?: string, code?: string }> }} */
+  let parsed = {};
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    // Non-JSON body; fall through to the generic message.
+  }
+  const details = parsed.errors ?? [];
+  const has = (resource, field, code) =>
+    details.some((d) => d.resource === resource && d.field === field && d.code === code);
+
+  if (has('Application', 'Status', 'Inactive')) {
+    const error = new Error(
+      'Strava has marked this API application inactive and is refusing every data request. Note that ' +
+        'this is an application-level block, not an account one: the OAuth sign-in still succeeds, ' +
+        'which is why the connection looks healthy right up until the first data request. Signing out ' +
+        'and back in will not change anything. Strava now requires the application owner to hold a ' +
+        'paid subscription for API access, so the fix is at strava.com/settings/api. Your connection ' +
+        'and any already-synced history are untouched and syncing resumes as soon as the application ' +
+        'is active again.',
+    );
+    error.code = 'application_inactive';
+    return error;
+  }
+
+  if (status === 401) {
+    const error = new Error(
+      'Strava rejected the stored credentials. Sign out and connect Strava again to issue fresh ones.',
+    );
+    error.code = 'reauthorize_required';
+    return error;
+  }
+
+  if (status === 403 && has('Activity', 'access_token', 'invalid')) {
+    const error = new Error(
+      'The Strava connection is missing the activity:read_all permission, so private and detailed ' +
+        'activity data cannot be read. Sign out and reconnect, accepting all requested permissions.',
+    );
+    error.code = 'insufficient_scope';
+    return error;
+  }
+
+  const error = new Error(`Strava request to ${path} failed (${status}): ${body}`);
+  error.code = 'strava_error';
+  return error;
 }
 
 /** @param {string} athleteId */

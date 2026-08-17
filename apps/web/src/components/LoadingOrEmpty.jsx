@@ -3,7 +3,7 @@
  * in with nothing synced yet. Returns null when the page should render normally.
  */
 
-import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
 import { Navigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAthleteData } from '../hooks/useAthleteData';
@@ -49,20 +49,25 @@ export default function LoadingOrEmpty({ status, activityCount }) {
           finishes.
         </Typography>
         {error && (
-          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-            {error}
-          </Typography>
+          <Alert
+            severity={error.code === 'application_inactive' ? 'warning' : 'error'}
+            sx={{ mb: 2, textAlign: 'left' }}
+          >
+            {error.message}
+          </Alert>
         )}
         <Button
           variant="contained"
-          disabled={syncing}
+          // Retrying an inactive application just produces the same 403, so the
+          // button stops offering an action that cannot succeed.
+          disabled={syncing || error?.code === 'application_inactive'}
           onClick={async () => {
             setSyncing(true);
             setError(null);
             try {
               await sync(true);
             } catch (syncError) {
-              setError(syncError.message);
+              setError({ message: syncError.message, code: syncError.code });
             } finally {
               setSyncing(false);
             }

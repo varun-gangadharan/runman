@@ -1,4 +1,4 @@
-import { AppBar, Box, Button, Chip, IconButton, Toolbar, Tooltip, Typography } from '@mui/material';
+import { Alert, AppBar, Box, Button, Chip, IconButton, Snackbar, Toolbar, Tooltip, Typography } from '@mui/material';
 import { DirectionsRun, Sync } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
@@ -18,12 +18,18 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const { status, athlete, sync, activities, sync: runSync } = useAthleteData();
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(null);
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncError(null);
     try {
       // A first sync has nothing stored, so it has to walk the whole history.
       await runSync(activities.length === 0);
+    } catch (error) {
+      // A sync that fails silently is worse than one that fails loudly: the
+      // athlete concludes they have no data rather than that the pull broke.
+      setSyncError(error.message);
     } finally {
       setSyncing(false);
     }
@@ -89,6 +95,18 @@ export default function Navbar() {
           </>
         )}
       </Toolbar>
+
+      <Snackbar
+        open={Boolean(syncError)}
+        onClose={() => setSyncError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        // Long enough to actually read a paragraph explaining what went wrong.
+        autoHideDuration={15000}
+      >
+        <Alert severity="warning" onClose={() => setSyncError(null)} sx={{ maxWidth: 560 }}>
+          {syncError}
+        </Alert>
+      </Snackbar>
     </AppBar>
   );
 }
