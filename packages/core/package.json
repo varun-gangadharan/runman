@@ -1,0 +1,30 @@
+{
+  "name": "@runman/core",
+  "version": "1.0.0",
+  "description": "Shared, fixture-tested training-science core for Runman and RunCoach: training load, race prediction, volume, heart-rate zones and plan generation.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

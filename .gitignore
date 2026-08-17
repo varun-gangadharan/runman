@@ -1,0 +1,15 @@
+node_modules/
+.pnp
+.pnp.js
+dist/
+build/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/
+*.swp

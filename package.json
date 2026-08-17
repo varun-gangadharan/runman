@@ -1,0 +1,23 @@
+{
+  "name": "runman",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Strava training analytics and plan generation, with a fixture-tested shared science core.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @runman/core && npm run build -w @runman/web",
+    "test": "npm run test -w @runman/core",
+    "typecheck": "npm run typecheck -w @runman/core",
+    "dev": "npm start -w @runman/web"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}

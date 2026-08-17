@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The science core is where correctness actually matters, so it is
+      # typechecked and tested before anything is built.
+      - name: Typecheck core
+        run: npm run typecheck
+
+      - name: Test core
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # A committed Strava secret is what started this rewrite. Fail the build
+      # rather than trust anyone to remember.
+      - name: Check for hardcoded credentials
+        run: |
+          if grep -rInE "(client_secret|CLIENT_SECRET)[[:space:]]*[:=][[:space:]]*['\"][A-Za-z0-9]{20,}" \
+               --include='*.js' --include='*.jsx' --include='*.ts' --include='*.tsx' \
+               --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build .; then
+            echo "::error::A credential literal is present in source. Move it to an environment variable."
+            exit 1
+          fi
+          echo "No credential literals found."

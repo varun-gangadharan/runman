@@ -1,0 +1,78 @@
+/**
+ * The three states every data page shares: still loading, signed out, or signed
+ * in with nothing synced yet. Returns null when the page should render normally.
+ */
+
+import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
+import { Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useAthleteData } from '../hooks/useAthleteData';
+
+export default function LoadingOrEmpty({ status, activityCount }) {
+  const { sync } = useAthleteData();
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (status === 'loading') {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 12 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
+
+  if (status === 'error') {
+    return (
+      <Paper sx={{ p: 4, mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Could not load your data
+        </Typography>
+        <Typography color="text.secondary">
+          The server returned an error. Reload the page, and if it persists check that the app&apos;s
+          environment variables are set.
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (activityCount === 0) {
+    return (
+      <Paper sx={{ p: 4, mt: 4, textAlign: 'center' }}>
+        <Typography variant="h6" gutterBottom>
+          Nothing synced yet
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          Your Strava account is connected, but no activities have been pulled in. Everything on this
+          page is computed from stored history, so there is nothing to show until that first sync
+          finishes.
+        </Typography>
+        {error && (
+          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+        <Button
+          variant="contained"
+          disabled={syncing}
+          onClick={async () => {
+            setSyncing(true);
+            setError(null);
+            try {
+              await sync(true);
+            } catch (syncError) {
+              setError(syncError.message);
+            } finally {
+              setSyncing(false);
+            }
+          }}
+        >
+          {syncing ? 'Syncing from Strava…' : 'Sync my Strava history'}
+        </Button>
+      </Paper>
+    );
+  }
+
+  return null;
+}
