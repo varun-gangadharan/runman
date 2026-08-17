@@ -24,7 +24,7 @@ import {
 import { assessActivity, buildLoadScorer, formatDuration, formatPace } from '@runman/core';
 import { useAthleteData } from '../hooks/useAthleteData';
 import { useSettings } from '../context/SettingsContext';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 
 const METHOD_LABEL = {
   trimp_hr: 'heart rate',
@@ -51,7 +51,7 @@ export default function Activities() {
       }));
   }, [activities, profile]);
 
-  const gate = <LoadingOrEmpty status={status} activityCount={activities.length} />;
+  const gate = useDataGate();
   if (gate) return gate;
 
   const visible = scored.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);

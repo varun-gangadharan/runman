@@ -31,7 +31,7 @@ import { deriveMaxHeartRate, heartRateZones } from '@runman/core';
 import { api } from '../api/client';
 import { useAthleteData } from '../hooks/useAthleteData';
 import { useSettings } from '../context/SettingsContext';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 import ImportExport from '../components/ImportExport';
 import { Explanation } from '../components/Provenance';
 
@@ -62,7 +62,7 @@ export default function Profile() {
     if (status === 'ready') api.keys.list().then((result) => setKeys(result.keys)).catch(() => {});
   }, [status]);
 
-  const gate = <LoadingOrEmpty status={status} activityCount={1} />;
+  const gate = useDataGate({ requireActivities: false });
   if (gate) return gate;
 
   const derivedMax = deriveMaxHeartRate(activities, profile);

@@ -43,7 +43,7 @@ import {
 } from '@runman/core';
 import { useAthleteData } from '../hooks/useAthleteData';
 import { Explanation } from '../components/Provenance';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 
 export default function Records() {
   const { status, activities } = useAthleteData();
@@ -52,7 +52,7 @@ export default function Records() {
   const fit = useMemo(() => fitPowerLaw(efforts), [efforts]);
   const screening = useMemo(() => screenActivities(activities), [activities]);
 
-  const gate = <LoadingOrEmpty status={status} activityCount={activities.length} />;
+  const gate = useDataGate();
   if (gate) return gate;
 
   const usedIds = new Set((fit?.efforts ?? []).map((effort) => effort.activityId));

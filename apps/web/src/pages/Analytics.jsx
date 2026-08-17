@@ -35,7 +35,7 @@ import { classifyActivity, computeLoadSeries, heartRateZones, weeklyVolume } fro
 import { useAthleteData } from '../hooks/useAthleteData';
 import { useSettings } from '../context/SettingsContext';
 import { ConfidenceChip, Explanation } from '../components/Provenance';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 
 const WINDOWS = [
   { label: '6 weeks', days: 42 },
@@ -74,7 +74,7 @@ export default function Analytics() {
     }));
   }, [activities, zones]);
 
-  const gate = <LoadingOrEmpty status={status} activityCount={activities.length} />;
+  const gate = useDataGate();
   if (gate) return gate;
 
   const weeklyChartData = weeks.map((week) => ({

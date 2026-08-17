@@ -1,15 +1,46 @@
 /**
  * The three states every data page shares: still loading, signed out, or signed
- * in with nothing synced yet. Returns null when the page should render normally.
+ * in with nothing imported yet.
+ *
+ * This is a hook returning an element *or null*, rather than a component,
+ * because of the bug it replaces. The previous version was a component used as:
+ *
+ *   const gate = <LoadingOrEmpty status={status} activityCount={n} />;
+ *   if (gate) return gate;
+ *
+ * A JSX element is an object, so `gate` was always truthy and every page
+ * returned the gate unconditionally. The gate rendered `null` whenever the data
+ * was fine, so the entire app rendered blank pages under a working navbar — the
+ * failure looked like a data problem when it was pure control flow.
+ *
+ * Returning `null` for "no gate needed" makes `if (gate)` mean what it reads
+ * like. The shape of the API is what prevents the mistake, rather than a comment
+ * asking callers to remember.
  */
 
-import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, Typography } from '@mui/material';
-import { Link, Navigate } from 'react-router-dom';
 import { useState } from 'react';
-import { useAthleteData } from '../hooks/useAthleteData';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Link as MuiLink,
+  Paper,
+  Typography,
+} from '@mui/material';
+import { Link, Navigate } from 'react-router-dom';
+import { useAthleteData } from './useAthleteData';
 
-export default function LoadingOrEmpty({ status, activityCount }) {
-  const { sync } = useAthleteData();
+/**
+ * @param {{ requireActivities?: boolean }} options
+ *   `requireActivities: false` for pages that must stay reachable with an empty
+ *   history — Profile in particular, since that is where the importer lives.
+ * @returns {JSX.Element | null} An element to render instead of the page, or
+ *   null when the page should render normally.
+ */
+export function useDataGate(options = {}) {
+  const requireActivities = options.requireActivities ?? true;
+  const { status, activities, sync } = useAthleteData();
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -37,17 +68,17 @@ export default function LoadingOrEmpty({ status, activityCount }) {
     );
   }
 
-  if (activityCount === 0) {
+  if (requireActivities && activities.length === 0) {
     return (
       <Paper sx={{ p: 4, mt: 4, textAlign: 'center' }}>
         <Typography variant="h6" gutterBottom>
-          Nothing synced yet
+          Nothing imported yet
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Your Strava account is connected, but no activities have been pulled in. Everything on this
-          page is computed from stored history, so there is nothing to show until that first sync
-          finishes.
+          Your account is connected, but no activities have been loaded. Everything on this page is
+          computed from stored history, so there is nothing to show until some arrives.
         </Typography>
+
         {error && (
           <Alert
             severity={error.code === 'application_inactive' ? 'warning' : 'error'}
@@ -56,10 +87,11 @@ export default function LoadingOrEmpty({ status, activityCount }) {
             {error.message}
           </Alert>
         )}
+
         <Button
           variant="contained"
-          // Retrying an inactive application just produces the same 403, so the
-          // button stops offering an action that cannot succeed.
+          // Retrying an inactive Strava application produces the same 403 every
+          // time, so the button stops offering an action that cannot succeed.
           disabled={syncing || error?.code === 'application_inactive'}
           onClick={async () => {
             setSyncing(true);

@@ -38,7 +38,7 @@ import {
 import { useAthleteData } from '../hooks/useAthleteData';
 import { useSettings } from '../context/SettingsContext';
 import { ConfidenceChip, Explanation } from '../components/Provenance';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 
 const RACE_DISTANCES = STANDARD_DISTANCES.filter((distance) => distance.meters >= 3000);
 
@@ -77,7 +77,7 @@ export default function TrainingPlan() {
     [activities, targetMeters, goal],
   );
 
-  const gate = <LoadingOrEmpty status={status} activityCount={activities.length} />;
+  const gate = useDataGate();
   if (gate) return gate;
 
   const handleGenerate = () => {

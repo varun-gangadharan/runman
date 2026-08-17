@@ -13,7 +13,7 @@ import { analyzeTrainingStatus } from '@runman/core';
 import { useAthleteData } from '../hooks/useAthleteData';
 import { Caveats, ConfidenceChip } from '../components/Provenance';
 import StatCard from '../components/StatCard';
-import LoadingOrEmpty from '../components/LoadingOrEmpty';
+import { useDataGate } from '../hooks/useDataGate';
 
 const STATE_SEVERITY = {
   overreaching: 'warning',
@@ -33,7 +33,7 @@ export default function Dashboard() {
     [activities, profile],
   );
 
-  const gate = <LoadingOrEmpty status={status} activityCount={activities.length} />;
+  const gate = useDataGate();
   if (gate) return gate;
 
   return (
