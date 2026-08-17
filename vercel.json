@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/build",
   "functions": {
-    "api/**/*.js": { "runtime": "nodejs22.x", "maxDuration": 60 }
+    "api/**/*.js": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },

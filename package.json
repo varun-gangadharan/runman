@@ -16,7 +16,7 @@
     "dev": "npm start -w @runman/web"
   },
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"
