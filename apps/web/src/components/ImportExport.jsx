@@ -37,7 +37,12 @@ const SKIP_LABELS = {
   missing_id: 'no activity id',
 };
 
-export default function ImportExport() {
+/**
+ * @param {{ compact?: boolean }} props
+ *   `compact` drops the card chrome and the explanatory heading, for embedding
+ *   inside the empty-state gate where that context is already on screen.
+ */
+export default function ImportExport({ compact = false }) {
   const { reload } = useAthleteData();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +59,11 @@ export default function ImportExport() {
 
     try {
       const text = await file.text();
-      const report = parseStravaExport(text);
+      // Store every activity type, matching what the API sync stores. Volume and
+      // best efforts filter to runs downstream; training load counts all of it,
+      // because a hard ride is real training stress. Filtering here instead would
+      // make the two ingestion paths disagree about the same athlete.
+      const report = parseStravaExport(text, { includeNonRuns: true });
 
       if (report.activities.length === 0) {
         setError(
@@ -91,6 +100,85 @@ export default function ImportExport() {
       }, {})
     : {};
 
+  const controls = (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={(event) => handleFile(event.target.files?.[0])}
+      />
+
+      <Button
+        variant="contained"
+        startIcon={<UploadFile />}
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      >
+        {busy ? 'Importing…' : 'Choose activities.csv'}
+      </Button>
+
+      {busy && <LinearProgress variant="determinate" value={progress} sx={{ mt: 2 }} />}
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {result && (
+        <Alert severity="success" sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Imported {result.saved} activities from {result.report.rowsRead} rows.
+          </Typography>
+          {Object.keys(skipCounts).length > 0 && (
+            <Typography variant="body2" component="div">
+              Skipped:{' '}
+              {Object.entries(skipCounts)
+                .map(([reason, count]) => `${count} ${SKIP_LABELS[reason] ?? reason}`)
+                .join(', ')}
+              .
+            </Typography>
+          )}
+          {result.rejected > 0 && (
+            <Typography variant="body2">
+              {result.rejected} rejected by validation on the server.
+            </Typography>
+          )}
+          {result.report.warnings.map((warning) => (
+            <Typography key={warning} variant="body2" sx={{ mt: 0.5 }}>
+              {warning}
+            </Typography>
+          ))}
+        </Alert>
+      )}
+    </>
+  );
+
+  const instructions = (
+    <>
+      Go to{' '}
+      <Link href="https://www.strava.com/athlete/delete_your_account" target="_blank" rel="noreferrer">
+        Settings → My Account → Download or Delete Your Account
+      </Link>
+      , request an archive, and upload the <code>activities.csv</code> from the zip Strava emails
+      you. It usually arrives within a few hours. Re-importing the same file updates existing
+      activities rather than duplicating them.
+    </>
+  );
+
+  if (compact) {
+    return (
+      <Box>
+        {controls}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+          {instructions}
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Card>
       <CardContent>
@@ -99,65 +187,10 @@ export default function ImportExport() {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Strava restricts API access to subscribers, but your full history is still free to
-          download. Go to{' '}
-          <Link href="https://www.strava.com/athlete/delete_your_account" target="_blank" rel="noreferrer">
-            Settings → My Account → Download or Delete Your Account
-          </Link>
-          , request an archive, and upload the <code>activities.csv</code> from the zip Strava emails
-          you. Re-importing the same file updates existing activities rather than duplicating them.
+          download. {instructions}
         </Typography>
 
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: 'none' }}
-          onChange={(event) => handleFile(event.target.files?.[0])}
-        />
-
-        <Button
-          variant="contained"
-          startIcon={<UploadFile />}
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          {busy ? 'Importing…' : 'Choose activities.csv'}
-        </Button>
-
-        {busy && <LinearProgress variant="determinate" value={progress} sx={{ mt: 2 }} />}
-
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {result && (
-          <Alert severity="success" sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Imported {result.saved} activities from {result.report.rowsRead} rows.
-            </Typography>
-            {Object.keys(skipCounts).length > 0 && (
-              <Typography variant="body2" component="div">
-                Skipped:{' '}
-                {Object.entries(skipCounts)
-                  .map(([reason, count]) => `${count} ${SKIP_LABELS[reason] ?? reason}`)
-                  .join(', ')}
-                .
-              </Typography>
-            )}
-            {result.rejected > 0 && (
-              <Typography variant="body2">
-                {result.rejected} rejected by validation on the server.
-              </Typography>
-            )}
-            {result.report.warnings.map((warning) => (
-              <Typography key={warning} variant="body2" sx={{ mt: 0.5 }}>
-                {warning}
-              </Typography>
-            ))}
-          </Alert>
-        )}
+        {controls}
 
         <Box sx={{ mt: 2 }}>
           <Typography variant="caption" color="text.secondary">

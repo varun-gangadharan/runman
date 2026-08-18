@@ -23,12 +23,16 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
-  Link as MuiLink,
+  Grid,
   Paper,
   Typography,
 } from '@mui/material';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import ImportExport from '../components/ImportExport';
 import { useAthleteData } from './useAthleteData';
 
 /**
@@ -70,54 +74,77 @@ export function useDataGate(options = {}) {
 
   if (requireActivities && activities.length === 0) {
     return (
-      <Paper sx={{ p: 4, mt: 4, textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>
-          Nothing imported yet
+      <Box sx={{ maxWidth: 760, mx: 'auto', mt: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Let&apos;s get your training history in
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Your account is connected, but no activities have been loaded. Everything on this page is
-          computed from stored history, so there is nothing to show until some arrives.
+          Everything Runman shows is computed from your stored activities, so there is nothing to
+          display yet. There are two ways in, and they produce identical results — pick whichever
+          matches your Strava account.
         </Typography>
 
         {error && (
           <Alert
             severity={error.code === 'application_inactive' ? 'warning' : 'error'}
-            sx={{ mb: 2, textAlign: 'left' }}
+            sx={{ mb: 3 }}
           >
             {error.message}
           </Alert>
         )}
 
-        <Button
-          variant="contained"
-          // Retrying an inactive Strava application produces the same 403 every
-          // time, so the button stops offering an action that cannot succeed.
-          disabled={syncing || error?.code === 'application_inactive'}
-          onClick={async () => {
-            setSyncing(true);
-            setError(null);
-            try {
-              await sync(true);
-            } catch (syncError) {
-              setError({ message: syncError.message, code: syncError.code });
-            } finally {
-              setSyncing(false);
-            }
-          }}
-        >
-          {syncing ? 'Syncing from Strava…' : 'Sync my Strava history'}
-        </Button>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Import an export
+                </Typography>
+                <Chip size="small" label="Works on any account" color="success" sx={{ mb: 1.5 }} />
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Strava lets every athlete download their full history for free, no subscription
+                  needed. Request the archive, then upload the <code>activities.csv</code> from it.
+                </Typography>
+                <ImportExport compact />
+              </CardContent>
+            </Card>
+          </Grid>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-          {error?.code === 'application_inactive'
-            ? 'Since the API is unavailable, import your history instead — '
-            : 'No Strava API access? Import a bulk export instead — '}
-          <MuiLink component={Link} to="/profile">
-            Profile → Import from a Strava export
-          </MuiLink>
-          . Strava lets every athlete download their full history for free.
-        </Typography>
-      </Paper>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Sync over the API
+                </Typography>
+                <Chip size="small" label="Needs a Strava subscription" sx={{ mb: 1.5 }} />
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Pulls straight from Strava and stays up to date incrementally afterwards. Strava
+                  restricts API access to subscribers, so this returns an error on a free account.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  // Retrying an inactive Strava application produces the same 403
+                  // every time, so stop offering an action that cannot succeed.
+                  disabled={syncing || error?.code === 'application_inactive'}
+                  onClick={async () => {
+                    setSyncing(true);
+                    setError(null);
+                    try {
+                      await sync(true);
+                    } catch (syncError) {
+                      setError({ message: syncError.message, code: syncError.code });
+                    } finally {
+                      setSyncing(false);
+                    }
+                  }}
+                >
+                  {syncing ? 'Syncing from Strava…' : 'Try syncing from Strava'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
     );
   }
 

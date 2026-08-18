@@ -165,3 +165,96 @@ describe('plausibility screening', () => {
     assert.deepEqual(assessActivity(run({ daysAgo: 1, km: 10, paceSecPerKm: 330 })).flags, ['ok']);
   });
 });
+
+describe('maximal-effort filtering', () => {
+  test('a curve still fits when the short-distance efforts are jogs', async () => {
+    const { jogsAndRacesRunner } = await import('./fixtures.ts');
+    const { activities } = jogsAndRacesRunner();
+    const { findBestEfforts, fitPowerLaw } = await import('../src/performance.ts');
+
+    const efforts = findBestEfforts(activities);
+    // The jogs do arrive as best efforts — they are the fastest in their bands.
+    assert.ok(efforts.some((e) => e.activityName === 'commute to sauna'));
+
+    const fit = fitPowerLaw(efforts);
+    assert.ok(fit, 'a fit must be produced despite the jogs');
+    assert.ok(
+      fit.exponent >= 1.0 && fit.exponent <= 1.3,
+      `exponent ${fit.exponent} must stay physiologically plausible`,
+    );
+  });
+
+  test('the jogs are excluded from the fit and the real races are kept', async () => {
+    const { jogsAndRacesRunner } = await import('./fixtures.ts');
+    const { findBestEfforts, fitPowerLaw } = await import('../src/performance.ts');
+    const fit = fitPowerLaw(findBestEfforts(jogsAndRacesRunner().activities))!;
+
+    const used = fit.efforts.map((e) => e.activityName);
+    for (const jog of ['commute to sauna', 'shakeout', 'warm-up']) {
+      assert.ok(!used.includes(jog), `${jog} is not a maximal effort and must not shape the curve`);
+    }
+    // Discarding the marathon — the single most informative point — was the
+    // specific failure this guards against.
+    assert.ok(used.includes('marathon'), 'the marathon must survive filtering');
+    assert.ok(used.includes('half marathon'), 'the half marathon must survive filtering');
+  });
+
+  test('predictions use the personal curve rather than falling back', async () => {
+    const { jogsAndRacesRunner } = await import('./fixtures.ts');
+    const { activities } = jogsAndRacesRunner();
+    const prediction = predictRaceTime(activities, MARATHON, { now: NOW, lookbackDays: 400 })!;
+
+    assert.equal(prediction.method, 'personal_power_law');
+    assert.ok(prediction.exponent >= 1.0);
+  });
+});
+
+describe('predictions respect the athlete own performances', () => {
+  test('never predicts slower than a recent effort at the same distance', async () => {
+    const { findBestEfforts } = await import('../src/performance.ts');
+    const { jogsAndRacesRunner } = await import('./fixtures.ts');
+
+    // The invariant that matters to a user: if you have actually run a distance
+    // recently, the model must not tell you that you would run it slower.
+    for (const { activities } of [consistentRunner(), jogsAndRacesRunner()]) {
+      const efforts = findBestEfforts(activities, {
+        since: new Date(NOW.getTime() - 400 * 86400000),
+      });
+
+      for (const effort of efforts) {
+        const prediction = predictRaceTime(activities, effort.actualDistanceMeters, {
+          now: NOW,
+          lookbackDays: 400,
+        });
+        if (!prediction || prediction.method !== 'personal_power_law') continue;
+        // Only meaningful for efforts the fit actually considered maximal.
+        if (!prediction.basedOn.some((r) => r.activityId === effort.activityId)) continue;
+
+        assert.ok(
+          prediction.predictedSeconds <= effort.timeSeconds * 1.005,
+          `predicted ${prediction.formattedTime} at ${effort.label} but the athlete ran ` +
+            `${effort.formattedPace ?? ''} ${Math.round(effort.timeSeconds)}s`,
+        );
+      }
+    }
+  });
+
+  test('the curve sits on the fast edge of the efforts, not through their middle', async () => {
+    const { findBestEfforts, fitPowerLaw, predictFromFit } = await import('../src/performance.ts');
+    const { jogsAndRacesRunner } = await import('./fixtures.ts');
+    const fit = fitPowerLaw(findBestEfforts(jogsAndRacesRunner().activities))!;
+
+    // Every effort used must land on or above the curve, and at least one must
+    // sit exactly on it — that is what "envelope" means.
+    let onCurve = 0;
+    for (const effort of fit.efforts) {
+      const predicted = predictFromFit(fit, effort.actualDistanceMeters);
+      assert.ok(
+        effort.timeSeconds >= predicted * 0.999,
+        `${effort.label} sits below the envelope, which should be impossible`,
+      );
+      if (effort.timeSeconds <= predicted * 1.001) onCurve += 1;
+    }
+    assert.ok(onCurve >= 1, 'the curve must touch the athlete best effort');
+  });
+});

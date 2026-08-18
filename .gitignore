@@ -13,3 +13,6 @@ npm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# Created inside the submodule checkout when RunCoach installs the core.
+packages/core/package-lock.json

@@ -167,3 +167,49 @@ export function spikingRunner(): { activities: Activity[]; profile: AthleteProfi
   }
   return { activities, profile: { sex: 'male', maxHeartRate: 190, restingHeartRate: 50 } };
 }
+
+/**
+ * The shape that broke the curve fit on real data.
+ *
+ * A serious runner whose only short activities are commutes and warm-ups, and
+ * whose genuine efforts are all long. The fastest sub-2 km run on file is still
+ * a 6:00/km jog, which is not a best effort at any level — but it *is* the
+ * fastest activity in its distance band, so it arrives as one.
+ *
+ * Residual-based trimming alone gets this exactly backwards: the slow short
+ * points flatten the initial slope, so every genuinely fast long race becomes
+ * the apparent outlier and gets discarded. On a real 675-activity history that
+ * produced an exponent of 0.992 — below the physiological floor, so no curve at
+ * all — after throwing away the athlete's actual marathon and keeping a commute.
+ */
+export function jogsAndRacesRunner(): { activities: Activity[]; profile: AthleteProfile } {
+  const activities: Activity[] = [];
+
+  // Commutes and warm-ups: short, and jogged at 6:00/km.
+  activities.push(run({ daysAgo: 20, km: 1.0, paceSecPerKm: 363, hr: 120, name: 'commute to sauna' }));
+  activities.push(run({ daysAgo: 35, km: 1.65, paceSecPerKm: 349, hr: 122, name: 'shakeout' }));
+  activities.push(run({ daysAgo: 50, km: 2.0, paceSecPerKm: 327, hr: 125, name: 'warm-up' }));
+
+  // Genuine efforts, sitting on T = a·D^1.08.
+  activities.push(run({ daysAgo: 60, km: 5.01, paceSecPerKm: 240, hr: 176, name: '5K effort' }));
+  activities.push(run({ daysAgo: 75, km: 11.32, paceSecPerKm: 255, hr: 172, name: '11K tempo' }));
+  activities.push(run({ daysAgo: 95, km: 16.17, paceSecPerKm: 267, hr: 170, name: '10 mile' }));
+  activities.push(run({ daysAgo: 110, km: 21.42, paceSecPerKm: 252, hr: 174, name: 'half marathon' }));
+  activities.push(run({ daysAgo: 140, km: 42.83, paceSecPerKm: 294, hr: 168, name: 'marathon' }));
+
+  // Enough ordinary volume that the athlete looks trained.
+  for (let week = 0; week < 20; week++) {
+    for (const [weekday, km] of [[0, 8], [2, 12], [4, 10], [6, 18]] as const) {
+      const activity = runOnWeekday(week, weekday as 0 | 2 | 4 | 6, {
+        km,
+        paceSecPerKm: 330,
+        hr: 145,
+        maxHr: 160,
+        name: 'Easy run',
+      });
+      if (activity) activities.push(activity);
+    }
+  }
+
+  return { activities, profile: { sex: 'male', maxHeartRate: 190, restingHeartRate: 45 } };
+}

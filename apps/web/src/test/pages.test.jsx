@@ -91,17 +91,24 @@ describe('the gate still gates when it should', () => {
   test('an athlete with no activities gets the empty state, not a crash', async () => {
     stubApi({ activities: [] });
     renderPage(<Dashboard />);
-    expect(await screen.findByText('Nothing imported yet')).toBeInTheDocument();
-    // And is pointed at the importer, which is the only path that works without
-    // a Strava subscription.
-    expect(screen.getAllByText(/Import from a Strava export/).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Let.s get your training history in/)).toBeInTheDocument();
+
+    // Both ingestion paths must be offered, and which one works on a free
+    // account must be obvious without reading documentation.
+    expect(screen.getByText('Import an export')).toBeInTheDocument();
+    expect(screen.getByText('Sync over the API')).toBeInTheDocument();
+    expect(screen.getByText('Works on any account')).toBeInTheDocument();
+    expect(screen.getByText('Needs a Strava subscription')).toBeInTheDocument();
+
+    // The importer has to be usable right there, not one navigation away.
+    expect(screen.getByText('Choose activities.csv')).toBeInTheDocument();
   });
 
   test('Profile stays reachable with no activities, because it holds the importer', async () => {
     stubApi({ activities: [] });
     renderPage(<Profile />);
     expect(await screen.findByText('Import from a Strava export')).toBeInTheDocument();
-    expect(screen.queryByText('Nothing imported yet')).toBeNull();
+    expect(screen.queryByText(/Let.s get your training history in/)).toBeNull();
   });
 
   test('a signed-out visitor is redirected rather than shown an empty page', async () => {

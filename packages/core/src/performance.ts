@@ -137,22 +137,85 @@ export interface PowerLawFit {
 const ENVELOPE_TOLERANCE = 0.04;
 
 /**
- * Least-squares fit of `ln T = ln a + b ln D` across the athlete's best efforts,
- * trimmed to the lower envelope of the distance/time cloud.
+ * How much slower than the athlete's best distance-normalized performance an
+ * effort may be and still count as a maximal effort. 12% is wider than the
+ * spread between a good and a bad race day, and narrower than the gap between
+ * racing and jogging.
+ */
+const MAXIMAL_EFFORT_TOLERANCE = 0.12;
+
+/** Distance the equivalence comparison normalizes to. Arbitrary but central. */
+const EQUIVALENCE_REFERENCE_METERS = 10000;
+
+/**
+ * Riegel-normalize an effort to a common distance, so efforts at wildly
+ * different distances can be compared on one scale.
+ */
+function equivalentTime(effort: BestEffort): number {
+  return riegel(
+    effort.timeSeconds,
+    effort.actualDistanceMeters,
+    EQUIVALENCE_REFERENCE_METERS,
+    DEFAULT_RIEGEL_EXPONENT,
+  );
+}
+
+/**
+ * Keep only efforts that are plausibly maximal.
  *
- * The trimming matters. `findBestEfforts` returns the fastest activity *near*
- * each standard distance, but "nearest 16 km run" is not the same as "10-mile
- * best effort" — for most runners it is a long slow Sunday run that happens to
- * land at that distance. Left in, it drags the fitted exponent upward and makes
- * the athlete look like they fade far worse with distance than they do. Genuine
- * best efforts define the *lower* edge of the cloud, so points sitting well
- * above the curve are dropped and the curve refitted.
+ * `findBestEfforts` returns the fastest activity in each distance band, but the
+ * fastest run in a band is not necessarily a hard one — for most runners the
+ * only sub-2 km activities on file are warm-ups and commutes, and the quickest
+ * of those is still a jog. Those points are not on the athlete's performance
+ * curve at all, and including them is what makes the curve wrong.
  *
- * Returns null when fewer than three distinct distances survive, or when the
- * fitted exponent lands outside the physiologically plausible range.
+ * Comparing raw pace cannot separate them, because a jog is legitimately faster
+ * than a marathon. Normalizing every effort to a common distance first makes
+ * them directly comparable: a 6:03/km kilometre normalizes to a far worse
+ * 10 km-equivalent than an actual marathon does, which is exactly the judgement
+ * a coach would make by eye.
+ */
+function keepMaximalEfforts(efforts: readonly BestEffort[]): BestEffort[] {
+  if (efforts.length <= 3) return [...efforts];
+
+  const scored = efforts.map((effort) => ({ effort, equivalent: equivalentTime(effort) }));
+  const best = Math.min(...scored.map((s) => s.equivalent));
+  const cutoff = best * (1 + MAXIMAL_EFFORT_TOLERANCE);
+
+  const kept = scored.filter((s) => s.equivalent <= cutoff).map((s) => s.effort);
+
+  // Never filter below what a fit needs: fall back to the three most
+  // competitive efforts rather than giving up on a curve entirely.
+  if (kept.length >= 3) return kept;
+  return scored
+    .sort((a, b) => a.equivalent - b.equivalent)
+    .slice(0, 3)
+    .map((s) => s.effort);
+}
+
+/**
+ * Least-squares fit of `ln T = ln a + b ln D` across the athlete's maximal
+ * efforts.
+ *
+ * Two filters run before the fit, and the order matters.
+ *
+ * First, non-maximal efforts are dropped by distance-normalized comparison (see
+ * `keepMaximalEfforts`). This has to come first: residual-based trimming alone
+ * fails badly when the short-distance points are jogs, because their slow times
+ * flatten the initial slope, and every genuinely fast long race then looks like
+ * the outlier. On a real 675-activity history that produced a fitted exponent of
+ * 0.992 — below the physiological floor, so no curve at all — after discarding
+ * the athlete's actual marathon and keeping a commute.
+ *
+ * Second, the surviving points are trimmed to the lower envelope of the cloud,
+ * which catches individual bad days among otherwise genuine efforts.
+ *
+ * Returns null when fewer than three distances survive, or when the fitted
+ * exponent lands outside the physiologically plausible range — an exponent below
+ * 1.0 would mean the athlete gets *faster* as distance grows.
  */
 export function fitPowerLaw(efforts: readonly BestEffort[]): PowerLawFit | null {
-  let points = efforts.filter((e) => e.timeSeconds > 0 && e.actualDistanceMeters > 0);
+  let points = keepMaximalEfforts(efforts.filter((e) => e.timeSeconds > 0 && e.actualDistanceMeters > 0));
   if (points.length < 3) return null;
 
   // Trim one point at a time so a single bad outlier cannot take a good one with
@@ -178,7 +241,38 @@ export function fitPowerLaw(efforts: readonly BestEffort[]): PowerLawFit | null 
   const fit = leastSquaresLogFit(points);
   if (!fit) return null;
   if (fit.exponent < MIN_PLAUSIBLE_EXPONENT || fit.exponent > MAX_PLAUSIBLE_EXPONENT) return null;
-  return fit;
+  return anchorToEnvelope(fit);
+}
+
+/**
+ * Slide the fitted curve down onto the athlete's best efforts, keeping its slope.
+ *
+ * Least squares fits the *middle* of the effort cloud, which answers "what does
+ * a typical effort look like" — but a race prediction is a question about a
+ * maximal effort, so the curve has to sit on the fast edge of the cloud rather
+ * than through its centre.
+ *
+ * The difference is not academic. On a real history, a runner's actual half
+ * marathon sat 4.8% below the least-squares line while their long training runs
+ * sat above it, so the OLS curve predicted 1:33:20 for a half they had genuinely
+ * run in 1:30:21 four months earlier. Predicting someone slower than a race they
+ * have already run is the kind of wrong a user spots instantly, and rightly
+ * stops trusting the rest of the numbers over.
+ *
+ * Re-anchoring keeps the exponent — which describes how this athlete fades with
+ * distance, and is what the regression is genuinely good at — and moves only the
+ * intercept, so the curve passes through their best performance. The plausibility
+ * screening and maximal-effort filtering upstream are what make it safe to anchor
+ * on a single point: by here, the fastest surviving effort is a real one.
+ */
+function anchorToEnvelope(fit: PowerLawFit): PowerLawFit {
+  const residuals = fit.efforts.map(
+    (effort) =>
+      Math.log(effort.timeSeconds) -
+      Math.log(fit.coefficient * Math.pow(effort.actualDistanceMeters, fit.exponent)),
+  );
+  const shift = Math.min(...residuals);
+  return { ...fit, coefficient: fit.coefficient * Math.exp(shift) };
 }
 
 function leastSquaresLogFit(points: readonly BestEffort[]): PowerLawFit | null {

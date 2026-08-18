@@ -9,7 +9,7 @@
 import { normalizeStravaActivities } from '@runman/core';
 import { requireSession } from './_lib/session.js';
 import { fetchActivities } from './_lib/strava.js';
-import { getSyncState, saveActivities, saveSyncState } from './_lib/supabase.js';
+import { getSyncState, saveActivities, saveSyncState, supabase } from './_lib/supabase.js';
 
 const PER_PAGE = 100;
 /** Ceiling on pages per invocation, so one sync cannot run past the function timeout. */
@@ -53,8 +53,18 @@ export default async function handler(req, res) {
       page += 1;
     }
 
-    const total = (state?.activity_count ?? 0) + saved;
-    await saveSyncState(session.athleteId, { lastActivityDate: newest, activityCount: total });
+    // Count the rows rather than accumulating. Upserts are idempotent, so adding
+    // `saved` to the previous total double-counts everything an overlapping
+    // re-sync touched — a real history of 696 activities had drifted to 1398.
+    const { count } = await supabase()
+      .from('activities')
+      .select('*', { count: 'exact', head: true })
+      .eq('athlete_id', session.athleteId);
+
+    await saveSyncState(session.athleteId, {
+      lastActivityDate: newest,
+      activityCount: count ?? saved,
+    });
 
     res.json({
       ok: true,
