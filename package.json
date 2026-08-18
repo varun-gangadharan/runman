@@ -14,7 +14,7 @@
     "test": "npm run test -w @runman/core && node --test api/_lib/*.test.js api/*.test.js && npm run test -w @runman/web",
     "typecheck": "npm run typecheck -w @runman/core",
     "dev": "npm start -w @runman/web",
-    "pretest": "npm run build -w @runman/core"
+    "pretest": "npm run build -w @runman/core && npm run typecheck"
   },
   "engines": {
     "node": "22.x"

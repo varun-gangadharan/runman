@@ -232,8 +232,8 @@ describe('predictions respect the athlete own performances', () => {
 
         assert.ok(
           prediction.predictedSeconds <= effort.timeSeconds * 1.005,
-          `predicted ${prediction.formattedTime} at ${effort.label} but the athlete ran ` +
-            `${effort.formattedPace ?? ''} ${Math.round(effort.timeSeconds)}s`,
+          `predicted ${prediction.formattedTime} at ${effort.label} but the athlete ran it in ` +
+            `${Math.round(effort.timeSeconds)}s`,
         );
       }
     }
