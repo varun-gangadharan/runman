@@ -65,16 +65,24 @@ export function readSession(req) {
   return verifySession(match?.slice(COOKIE_NAME.length + 1));
 }
 
-/** @param {{ athleteId: string }} session */
-export function sessionCookie(session) {
+/**
+ * Attributes every cookie this app sets must carry.
+ *
+ * Exported so the OAuth state cookie uses the same rules as the session cookie.
+ * They were written separately once, and the state cookie — the one carrying
+ * CSRF protection — silently shipped without `Secure`.
+ */
+export function cookieAttributes({ maxAgeSeconds }) {
   const secure = config.appUrl().startsWith('https') ? '; Secure' : '';
-  return (
-    `${COOKIE_NAME}=${serializeSession(session)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${MAX_AGE_SECONDS}${secure}`
-  );
+  return `HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
+}
+
+export function sessionCookie(session) {
+  return `${COOKIE_NAME}=${serializeSession(session)}; ${cookieAttributes({ maxAgeSeconds: MAX_AGE_SECONDS })}`;
 }
 
 export function clearSessionCookie() {
-  return `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`;
+  return `${COOKIE_NAME}=; ${cookieAttributes({ maxAgeSeconds: 0 })}`;
 }
 
 /**

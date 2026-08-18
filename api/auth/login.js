@@ -9,6 +9,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { config } from '../_lib/env.js';
 import { authorizeUrl } from '../_lib/strava.js';
+import { cookieAttributes } from '../_lib/session.js';
 
 export default function handler(req, res) {
   try {
@@ -20,7 +21,7 @@ export default function handler(req, res) {
 
     // The state cookie is short-lived and exists only to survive the round trip
     // to Strava and back.
-    res.setHeader('Set-Cookie', `runman_oauth_state=${state}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600`);
+    res.setHeader('Set-Cookie', `runman_oauth_state=${state}; ${cookieAttributes({ maxAgeSeconds: 600 })}`);
     res.redirect(302, authorizeUrl(redirectUri, state));
   } catch (error) {
     res.status(500).json({ error: 'configuration_error', message: error.message });

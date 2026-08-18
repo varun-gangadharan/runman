@@ -10,7 +10,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { config } from '../_lib/env.js';
 import { exchangeCode } from '../_lib/strava.js';
 import { saveAthlete, saveTokens } from '../_lib/supabase.js';
-import { sessionCookie } from '../_lib/session.js';
+import { cookieAttributes, sessionCookie } from '../_lib/session.js';
 
 /** @param {string | undefined} state */
 function stateIsValid(state, cookieState) {
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     res.setHeader('Set-Cookie', [
       sessionCookie({ athleteId }),
-      'runman_oauth_state=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0',
+      `runman_oauth_state=; ${cookieAttributes({ maxAgeSeconds: 0 })}`,
     ]);
     // First sign-in has no activities stored yet, so land on the page that
     // offers to pull them in.
